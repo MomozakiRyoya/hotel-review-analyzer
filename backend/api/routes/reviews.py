@@ -2,7 +2,7 @@
 Review API endpoints.
 """
 from fastapi import APIRouter, HTTPException
-from typing import List
+from typing import List, Optional
 import asyncio
 import time
 from datetime import datetime
