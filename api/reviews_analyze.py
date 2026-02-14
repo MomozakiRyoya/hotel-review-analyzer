@@ -50,7 +50,7 @@ class handler(BaseHTTPRequestHandler):
                     "review_id": review.review_id,
                     "sentiment": review.sentiment,
                     "score": review.sentiment_score,
-                    "confidence": review.sentiment_confidence
+                    "confidence": review.confidence
                 })
 
             # Extract keywords

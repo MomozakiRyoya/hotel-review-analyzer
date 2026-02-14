@@ -68,7 +68,7 @@ class SentimentAnalyzerLite:
 
             review.sentiment = sentiment
             review.sentiment_score = round(sentiment_score, 3)
-            review.sentiment_confidence = min(0.7 + (total * 0.05), 0.95)  # Confidence based on keyword count
+            review.confidence = min(0.7 + (total * 0.05), 0.95)  # Confidence based on keyword count
 
         logger.info(f"✅ Sentiment analysis complete")
         return reviews
