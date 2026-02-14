@@ -2,6 +2,7 @@
 Minimal test endpoint for Vercel deployment debugging.
 """
 from fastapi import FastAPI
+from mangum import Mangum
 
 app = FastAPI()
 
@@ -13,5 +14,5 @@ def root():
 def health():
     return {"status": "healthy", "test": True}
 
-# Export for Vercel
-handler = app
+# Export for Vercel with Mangum adapter
+handler = Mangum(app)
