@@ -54,15 +54,18 @@ class handler(BaseHTTPRequestHandler):
                 })
 
             # Extract keywords
-            all_comments = [r.comment for r in reviews]
-            keywords = keyword_extractor.extract_keywords(all_comments, top_n=20)
+            keywords_results = keyword_extractor.extract_keywords_from_reviews(reviews, top_n=20)
+            keywords = [(k.keyword, k.frequency) for k in keywords_results]
 
             # Separate positive/negative keywords
-            positive_comments = [r.comment for r in reviews if r.rating >= 4]
-            negative_comments = [r.comment for r in reviews if r.rating <= 2]
+            positive_reviews = [r for r in reviews if r.rating >= 4]
+            negative_reviews = [r for r in reviews if r.rating <= 2]
 
-            positive_keywords = keyword_extractor.extract_keywords(positive_comments, top_n=10) if positive_comments else []
-            negative_keywords = keyword_extractor.extract_keywords(negative_comments, top_n=10) if negative_comments else []
+            positive_keywords_results = keyword_extractor.extract_keywords_from_reviews(positive_reviews, top_n=10) if positive_reviews else []
+            negative_keywords_results = keyword_extractor.extract_keywords_from_reviews(negative_reviews, top_n=10) if negative_reviews else []
+
+            positive_keywords = [(k.keyword, k.frequency) for k in positive_keywords_results]
+            negative_keywords = [(k.keyword, k.frequency) for k in negative_keywords_results]
 
             # Calculate statistics
             total_reviews = len(reviews)
