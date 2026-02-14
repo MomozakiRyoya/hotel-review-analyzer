@@ -1,6 +1,7 @@
 """
 Configuration management for the Hotel Review Analyzer application.
 """
+import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pathlib import Path
 from typing import Optional
@@ -31,11 +32,11 @@ class Settings(BaseSettings):
     max_retries: int = 3
     retry_backoff_factor: float = 2.0
 
-    # Data Directories
-    data_dir: Path = Path("./data")
-    cache_dir: Path = Path("./data/cache")
-    temp_dir: Path = Path("./data/temp")
-    output_dir: Path = Path("./output")
+    # Data Directories (use /tmp for serverless environments like Vercel)
+    data_dir: Path = Path("/tmp/data") if os.getenv("VERCEL") else Path("./data")
+    cache_dir: Path = Path("/tmp/data/cache") if os.getenv("VERCEL") else Path("./data/cache")
+    temp_dir: Path = Path("/tmp/data/temp") if os.getenv("VERCEL") else Path("./data/temp")
+    output_dir: Path = Path("/tmp/output") if os.getenv("VERCEL") else Path("./output")
 
     # NLP Model Settings
     sentiment_model: str = "daigo/bert-base-japanese-sentiment"
@@ -55,10 +56,16 @@ class Settings(BaseSettings):
 
     def ensure_directories(self) -> None:
         """Create necessary directories if they don't exist."""
-        for directory in [self.data_dir, self.cache_dir, self.temp_dir, self.output_dir]:
-            directory.mkdir(parents=True, exist_ok=True)
+        try:
+            for directory in [self.data_dir, self.cache_dir, self.temp_dir, self.output_dir]:
+                directory.mkdir(parents=True, exist_ok=True)
+        except (OSError, PermissionError):
+            # In serverless environments, directory creation may fail
+            # This is acceptable as /tmp directories may be pre-created or created on-demand
+            pass
 
 
 # Global settings instance
 settings = Settings()
-settings.ensure_directories()
+# Don't call ensure_directories() at module level for serverless compatibility
+# It will be called during app startup event instead
