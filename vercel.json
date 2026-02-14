@@ -15,8 +15,5 @@
       "src": "/(.*)",
       "dest": "backend/main.py"
     }
-  ],
-  "env": {
-    "RAKUTEN_APP_ID": "@rakuten_app_id"
-  }
+  ]
 }
