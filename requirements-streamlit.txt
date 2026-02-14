@@ -1,0 +1,14 @@
+# Streamlit Cloud requirements (frontend only)
+# Lightweight version without ML models
+
+# Frontend Framework
+streamlit==1.39.0
+
+# HTTP Client
+httpx==0.27.2
+
+# Data Processing
+pandas==2.2.3
+
+# Utilities
+python-dotenv==1.0.1
