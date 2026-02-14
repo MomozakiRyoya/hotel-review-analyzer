@@ -40,16 +40,17 @@ class handler(BaseHTTPRequestHandler):
             sentiment_analyzer = SentimentAnalyzerLite()
             keyword_extractor = KeywordExtractor()
 
-            # Analyze sentiment
+            # Analyze sentiment (modifies reviews in-place)
+            reviews = sentiment_analyzer.analyze_reviews(reviews)
+
+            # Build sentiment results
             sentiment_results = []
             for review in reviews:
-                sentiment = sentiment_analyzer.analyze(review.comment)
                 sentiment_results.append({
-                    "review_id": review.id,
-                    "sentiment": sentiment.sentiment,
-                    "score": sentiment.score,
-                    "positive_score": sentiment.positive_score,
-                    "negative_score": sentiment.negative_score
+                    "review_id": review.review_id,
+                    "sentiment": review.sentiment,
+                    "score": review.sentiment_score,
+                    "confidence": review.sentiment_confidence
                 })
 
             # Extract keywords
