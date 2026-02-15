@@ -38,7 +38,7 @@ def fetch_reviews(hotel_name: str, ota_sources: list, start_date, end_date, limi
     """Fetch reviews from backend API."""
     try:
         response = httpx.post(
-            f"{BACKEND_URL}/api/reviews/fetch",
+            f"{BACKEND_URL}/api/reviews_fetch",
             json={
                 "hotel_name": hotel_name,
                 "ota_sources": ota_sources,
@@ -59,7 +59,7 @@ def analyze_reviews(include_keywords=True, include_sentiment=True, keyword_limit
     """Analyze reviews using backend API."""
     try:
         response = httpx.post(
-            f"{BACKEND_URL}/api/reviews/analyze",
+            f"{BACKEND_URL}/api/reviews_analyze",
             json={
                 "include_keywords": include_keywords,
                 "include_sentiment": include_sentiment,
@@ -78,7 +78,7 @@ def export_to_excel(hotel_name: str, include_charts=True, include_raw_data=True)
     """Export analysis to Excel."""
     try:
         response = httpx.post(
-            f"{BACKEND_URL}/api/reviews/export",
+            f"{BACKEND_URL}/api/reviews_export",
             json={
                 "hotel_name": hotel_name,
                 "include_charts": include_charts,
