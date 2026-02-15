@@ -18,8 +18,11 @@ st.set_page_config(
 )
 
 # API Configuration
-# Use environment variable for production, fallback to localhost for development
-BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:8000")
+# Use st.secrets for Streamlit Cloud, fallback to environment variable for local development
+try:
+    BACKEND_URL = st.secrets.get("BACKEND_URL", os.environ.get("BACKEND_URL", "http://localhost:8000"))
+except Exception:
+    BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:8000")
 
 
 def check_backend_health() -> bool:
