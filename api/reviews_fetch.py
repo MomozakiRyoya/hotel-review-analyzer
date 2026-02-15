@@ -49,7 +49,7 @@ class handler(BaseHTTPRequestHandler):
                 "success": True,
                 "hotel_name": hotel_name,
                 "total_reviews": len(reviews),
-                "reviews": [r.dict() for r in reviews]
+                "reviews": [r.model_dump(mode='json') for r in reviews]
             }
             self.wfile.write(json.dumps(response, ensure_ascii=False).encode('utf-8'))
 
