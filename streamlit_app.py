@@ -47,9 +47,21 @@ def fetch_reviews(hotel_name: str, ota_sources: list, start_date, end_date, limi
             timeout=180.0  # 3 minutes
         )
         response.raise_for_status()
-        return response.json()
+
+        # Debug: Check response content
+        if not response.content:
+            st.error("❌ エラー: APIからの応答が空です")
+            return None
+
+        try:
+            return response.json()
+        except Exception as json_error:
+            st.error(f"❌ JSON解析エラー: {json_error}")
+            st.error(f"レスポンス内容: {response.text[:500]}")
+            return None
+
     except httpx.HTTPError as e:
-        st.error(f"❌ エラー: {str(e)}")
+        st.error(f"❌ HTTPエラー: {str(e)}")
         return None
 
 
