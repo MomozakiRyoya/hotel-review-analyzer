@@ -50,7 +50,7 @@ output/
 
 # NLP Models Cache
 .cache/
-models/
+/models/
 transformers_cache/
 
 # Testing
