@@ -2,6 +2,8 @@
 
 ホテル口コミ分析システム - 複数OTAからの口コミを一元管理し、感情分析とキーワード抽出を行い、Excel形式でレポートを出力するWebアプリケーション
 
+**🚀 Live Demo:** [Streamlit App](https://hotel-review-analyzer-cwzflxemngeggvgxm4juoe.streamlit.app/) | [API Backend](https://hotel-review-analyzer-hazel.vercel.app/)
+
 ## 📋 概要
 
 このシステムは、楽天トラベル、じゃらん、Booking.comなどの主要OTA（オンライン旅行代理店）からホテルの口コミを収集し、以下の分析を提供します：
