@@ -10,6 +10,8 @@ from backend.models.review import Review, OTASource
 from backend.services.ota.base import OTAClient
 from backend.services.ota.api_keys import get_agoda_credentials
 from backend.utils.exceptions import HotelNotFoundError, ReviewFetchError, AuthenticationError
+import httpx
+from typing import Dict, Any
 
 
 class AgodaClient(OTAClient):
@@ -84,8 +86,13 @@ class AgodaClient(OTAClient):
             logger.info("Using demo data - Agoda API not enabled")
             reviews = self._generate_demo_reviews(hotel_id, limit, languages)
         else:
-            # TODO: Implement real Agoda API call
-            reviews = self._generate_demo_reviews(hotel_id, limit, languages)
+            # Real Agoda API call
+            try:
+                logger.info("Fetching real reviews from Agoda API")
+                reviews = await self._fetch_real_reviews(hotel_id, limit, languages)
+            except Exception as e:
+                logger.error(f"Failed to fetch real reviews: {e}, falling back to demo")
+                reviews = self._generate_demo_reviews(hotel_id, limit, languages)
 
         # Filter by date
         reviews = self._filter_reviews_by_date(reviews, start_date, end_date)
@@ -143,6 +150,78 @@ class AgodaClient(OTAClient):
             "rating": 4.4,
             "review_count": 320
         }]
+
+    async def _fetch_real_reviews(self, hotel_id: str, limit: int, languages: List[str]) -> List[Review]:
+        """
+        Fetch real reviews from Agoda Affiliate API.
+
+        API: Agoda Affiliate/Partner API
+        Auth: API Key authentication
+        """
+        if not self.api_key or not self.partner_id:
+            raise AuthenticationError("Agoda API credentials not configured")
+
+        # Agoda reviews endpoint (example - actual endpoint may vary)
+        url = f"{self.endpoint}/properties/{hotel_id}/reviews"
+
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "X-API-Key": self.api_key,
+            "X-Partner-ID": self.partner_id
+        }
+
+        params = {
+            "limit": limit,
+            "language": ",".join(languages) if languages else "en"
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(url, headers=headers, params=params)
+                response.raise_for_status()
+
+                data = response.json()
+                reviews = []
+
+                # Parse Agoda response format
+                # Note: Actual response structure may vary
+                reviews_data = data.get("reviews", data.get("data", []))
+
+                for review_data in reviews_data[:limit]:
+                    review = self._parse_agoda_review(review_data, hotel_id)
+                    reviews.append(review)
+
+                logger.info(f"Fetched {len(reviews)} real reviews from Agoda")
+                return reviews
+
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 401 or e.response.status_code == 403:
+                raise AuthenticationError(f"Agoda authentication failed: {e}")
+            elif e.response.status_code == 404:
+                raise HotelNotFoundError(f"Hotel {hotel_id} not found on Agoda")
+            else:
+                raise ReviewFetchError(f"Agoda API error: {e}")
+        except httpx.RequestError as e:
+            raise ReviewFetchError(f"Agoda request failed: {e}")
+
+    def _parse_agoda_review(self, review_data: Dict[Any, Any], hotel_id: str) -> Review:
+        """Parse Agoda review data into Review model."""
+        # Agoda specific field mapping (adjust based on actual API response)
+        raw_data = {
+            "id": review_data.get("review_id", review_data.get("id", "")),
+            "title": review_data.get("title", review_data.get("review_title")),
+            "comment": review_data.get("comment", review_data.get("review_text", "")),
+            "rating": review_data.get("rating", review_data.get("overall_rating", 0)),
+            "reviewer_name": review_data.get("reviewer_name", review_data.get("guest_name")),
+            "review_date": review_data.get("review_date", review_data.get("created_date")),
+            "stay_date": review_data.get("stay_date", review_data.get("check_out_date")),
+            "trip_type": review_data.get("trip_type", review_data.get("travel_purpose")),
+            "room_type": review_data.get("room_type"),
+            "url": f"https://www.agoda.com/hotel/{hotel_id}/reviews"
+        }
+
+        return self.normalize_review(raw_data, hotel_id, review_data.get("hotel_name", ""))
 
     def _generate_demo_reviews(self, hotel_id: str, count: int, languages: List[str]) -> List[Review]:
         """Generate realistic demo reviews for Agoda."""

@@ -10,6 +10,8 @@ from backend.models.review import Review, OTASource
 from backend.services.ota.base import OTAClient
 from backend.services.ota.api_keys import get_booking_credentials
 from backend.utils.exceptions import HotelNotFoundError, ReviewFetchError, AuthenticationError
+import httpx
+from typing import Dict, Any
 
 
 class BookingClient(OTAClient):
@@ -74,6 +76,75 @@ class BookingClient(OTAClient):
             "review_count": 180
         }]
 
+    async def _fetch_real_reviews(self, hotel_id: str, limit: int, languages: List[str]) -> List[Review]:
+        """
+        Fetch real reviews from Booking.com API.
+
+        API: https://supply-xml.booking.com/review-api/properties/{hotel_id}/reviews
+        Auth: Basic Authentication (username:password)
+        """
+        if not self.username or not self.password:
+            raise AuthenticationError("Booking.com credentials not configured")
+
+        url = f"https://supply-xml.booking.com/review-api/properties/{hotel_id}/reviews"
+
+        # Basic Authentication
+        auth = httpx.BasicAuth(self.username, self.password)
+
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json"
+        }
+
+        params = {
+            "rows": limit,
+            "language": ",".join(languages) if languages else "en"
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(url, auth=auth, headers=headers, params=params)
+                response.raise_for_status()
+
+                data = response.json()
+                reviews = []
+
+                # Parse Booking.com response format
+                if "reviews" in data:
+                    for review_data in data["reviews"][:limit]:
+                        review = self._parse_booking_review(review_data, hotel_id)
+                        reviews.append(review)
+
+                logger.info(f"Fetched {len(reviews)} real reviews from Booking.com")
+                return reviews
+
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 401:
+                raise AuthenticationError(f"Booking.com authentication failed: {e}")
+            elif e.response.status_code == 404:
+                raise HotelNotFoundError(f"Hotel {hotel_id} not found on Booking.com")
+            else:
+                raise ReviewFetchError(f"Booking.com API error: {e}")
+        except httpx.RequestError as e:
+            raise ReviewFetchError(f"Booking.com request failed: {e}")
+
+    def _parse_booking_review(self, review_data: Dict[Any, Any], hotel_id: str) -> Review:
+        """Parse Booking.com review data into Review model."""
+        # Booking.com specific field mapping
+        raw_data = {
+            "id": review_data.get("review_id", ""),
+            "title": review_data.get("title"),
+            "comment": review_data.get("review_text", ""),
+            "rating": review_data.get("average_score", 0),  # 10-point scale
+            "reviewer_name": review_data.get("guest_name"),
+            "review_date": review_data.get("date"),
+            "stay_date": review_data.get("check_out_date"),
+            "trip_type": review_data.get("travel_purpose"),
+            "url": f"https://www.booking.com/hotel/reviewguest/{hotel_id}.html"
+        }
+
+        return self.normalize_review(raw_data, hotel_id, review_data.get("hotel_name", ""))
+
     async def fetch_reviews(
         self,
         hotel_id: str,
@@ -110,8 +181,13 @@ class BookingClient(OTAClient):
             logger.info("Using demo data - Booking.com API not enabled")
             reviews = self._generate_mock_reviews(hotel_id, limit, languages)
         else:
-            # TODO: Implement real Booking.com API call
-            reviews = self._generate_mock_reviews(hotel_id, limit, languages)
+            # Real Booking.com API call
+            try:
+                logger.info("Fetching real reviews from Booking.com API")
+                reviews = await self._fetch_real_reviews(hotel_id, limit, languages)
+            except Exception as e:
+                logger.error(f"Failed to fetch real reviews: {e}, falling back to demo")
+                reviews = self._generate_mock_reviews(hotel_id, limit, languages)
 
         # Filter by date
         reviews = self._filter_reviews_by_date(reviews, start_date, end_date)

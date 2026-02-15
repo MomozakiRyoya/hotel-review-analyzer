@@ -10,6 +10,9 @@ from backend.models.review import Review, OTASource
 from backend.services.ota.base import OTAClient
 from backend.services.ota.api_keys import get_expedia_credentials
 from backend.utils.exceptions import HotelNotFoundError, ReviewFetchError, AuthenticationError
+import httpx
+import base64
+from typing import Dict, Any
 
 
 class ExpediaClient(OTAClient):
@@ -84,8 +87,13 @@ class ExpediaClient(OTAClient):
             logger.info("Using demo data - Expedia API not enabled")
             reviews = self._generate_demo_reviews(hotel_id, limit, languages)
         else:
-            # TODO: Implement real Expedia API call
-            reviews = self._generate_demo_reviews(hotel_id, limit, languages)
+            # Real Expedia API call
+            try:
+                logger.info("Fetching real reviews from Expedia API")
+                reviews = await self._fetch_real_reviews(hotel_id, limit, languages)
+            except Exception as e:
+                logger.error(f"Failed to fetch real reviews: {e}, falling back to demo")
+                reviews = self._generate_demo_reviews(hotel_id, limit, languages)
 
         # Filter by date
         reviews = self._filter_reviews_by_date(reviews, start_date, end_date)
@@ -143,6 +151,127 @@ class ExpediaClient(OTAClient):
             "rating": 4.3,
             "review_count": 250
         }]
+
+    async def _get_access_token(self) -> str:
+        """
+        Get OAuth 2.0 access token for Expedia API.
+
+        Token endpoint: https://analytics.ean.com/*/v1/oauth/token
+        """
+        if not self.api_key or not self.api_secret:
+            raise AuthenticationError("Expedia API credentials not configured")
+
+        token_url = "https://analytics.ean.com/*/v1/oauth/token"
+
+        # Base64 encode credentials
+        credentials = f"{self.api_key}:{self.api_secret}"
+        encoded = base64.b64encode(credentials.encode()).decode()
+
+        headers = {
+            "Authorization": f"Basic {encoded}",
+            "Content-Type": "application/x-www-form-urlencoded"
+        }
+
+        data = {"grant_type": "client_credentials"}
+
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(token_url, headers=headers, data=data)
+                response.raise_for_status()
+                token_data = response.json()
+                return token_data["access_token"]
+        except Exception as e:
+            raise AuthenticationError(f"Expedia token request failed: {e}")
+
+    async def _fetch_real_reviews(self, hotel_id: str, limit: int, languages: List[str]) -> List[Review]:
+        """
+        Fetch real reviews from Expedia GraphQL API.
+
+        API: Lodging Supply GraphQL API
+        Auth: OAuth 2.0 Bearer token
+        """
+        try:
+            # Get access token
+            access_token = await self._get_access_token()
+
+            # GraphQL query for reviews
+            graphql_url = f"{self.endpoint}/graphql"
+
+            headers = {
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json"
+            }
+
+            # GraphQL query
+            query = """
+            query GetReviews($propertyId: String!, $first: Int!) {
+                reviews(propertyId: $propertyId, first: $first) {
+                    edges {
+                        node {
+                            id
+                            title
+                            body
+                            rating
+                            createdDateTime
+                            travelerName
+                            tripType
+                        }
+                    }
+                }
+            }
+            """
+
+            variables = {
+                "propertyId": hotel_id,
+                "first": limit
+            }
+
+            payload = {
+                "query": query,
+                "variables": variables
+            }
+
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(graphql_url, headers=headers, json=payload)
+                response.raise_for_status()
+
+                data = response.json()
+                reviews = []
+
+                # Parse GraphQL response
+                if "data" in data and "reviews" in data["data"]:
+                    for edge in data["data"]["reviews"]["edges"]:
+                        node = edge["node"]
+                        review = self._parse_expedia_review(node, hotel_id)
+                        reviews.append(review)
+
+                logger.info(f"Fetched {len(reviews)} real reviews from Expedia")
+                return reviews
+
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 401:
+                raise AuthenticationError(f"Expedia authentication failed: {e}")
+            elif e.response.status_code == 404:
+                raise HotelNotFoundError(f"Hotel {hotel_id} not found on Expedia")
+            else:
+                raise ReviewFetchError(f"Expedia API error: {e}")
+        except httpx.RequestError as e:
+            raise ReviewFetchError(f"Expedia request failed: {e}")
+
+    def _parse_expedia_review(self, review_data: Dict[Any, Any], hotel_id: str) -> Review:
+        """Parse Expedia review data into Review model."""
+        raw_data = {
+            "id": review_data.get("id", ""),
+            "title": review_data.get("title"),
+            "comment": review_data.get("body", ""),
+            "rating": review_data.get("rating", 0),
+            "reviewer_name": review_data.get("travelerName"),
+            "review_date": review_data.get("createdDateTime"),
+            "trip_type": review_data.get("tripType"),
+            "url": f"https://www.expedia.com/hotel/{hotel_id}/reviews"
+        }
+
+        return self.normalize_review(raw_data, hotel_id, "")
 
     def _generate_demo_reviews(self, hotel_id: str, count: int, languages: List[str]) -> List[Review]:
         """Generate realistic demo reviews for Expedia."""
