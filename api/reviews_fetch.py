@@ -8,20 +8,33 @@ import sys
 from pathlib import Path
 import asyncio
 from urllib.parse import parse_qs
+import traceback
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from backend.services.ota.booking import BookingClient
-from backend.services.ota.expedia import ExpediaClient
-from backend.services.ota.agoda import AgodaClient
+try:
+    from backend.services.ota.booking import BookingClient
+    from backend.services.ota.expedia import ExpediaClient
+    from backend.services.ota.agoda import AgodaClient
+    IMPORT_ERROR = None
+except Exception as e:
+    IMPORT_ERROR = f"Import error: {str(e)}\n{traceback.format_exc()}"
+    BookingClient = None
+    ExpediaClient = None
+    AgodaClient = None
 
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
         """Handle POST request to fetch reviews."""
         try:
+            # Check for import errors first
+            if IMPORT_ERROR:
+                self._send_error(500, f"Module import failed: {IMPORT_ERROR}")
+                return
+
             # Read request body
             content_length = int(self.headers.get('Content-Length', 0))
             body = self.rfile.read(content_length).decode('utf-8')
