@@ -85,12 +85,14 @@ def analyze_reviews(reviews, include_keywords=True, include_sentiment=True, keyw
         return None
 
 
-def export_to_excel(hotel_name: str, include_charts=True, include_raw_data=True):
-    """Export analysis to Excel."""
+def export_to_excel(reviews, analysis, hotel_name: str, include_charts=True, include_raw_data=True):
+    """Export analysis to CSV."""
     try:
         response = httpx.post(
             f"{BACKEND_URL}/api/reviews_export",
             json={
+                "reviews": reviews,
+                "analysis": analysis,
                 "hotel_name": hotel_name,
                 "include_charts": include_charts,
                 "include_raw_data": include_raw_data
@@ -255,10 +257,10 @@ def main():
                         st.success("✅ 分析が完了しました")
                         st.balloons()
 
-        # Step 3: Export to Excel
+        # Step 3: Export to CSV
         if st.session_state.analysis_response:
             st.markdown("---")
-            st.subheader("ステップ 3: Excelエクスポート")
+            st.subheader("ステップ 3: CSVエクスポート")
 
             col_export1, col_export2 = st.columns(2)
             with col_export1:
@@ -266,58 +268,36 @@ def main():
             with col_export2:
                 include_raw_data = st.checkbox("生データを含める", value=True)
 
-            if st.button("📥 Excelを生成", type="primary", use_container_width=True):
-                with st.spinner("Excelを生成中..."):
+            if st.button("📥 CSVを生成", type="primary", use_container_width=True):
+                with st.spinner("CSVを生成中..."):
+                    # Get reviews and analysis from session state
+                    reviews = st.session_state.fetch_response.get('reviews', [])
+                    analysis = st.session_state.analysis_response.get('analysis_result', {})
+
                     response = export_to_excel(
-                        hotel_name, include_charts, include_raw_data
+                        reviews, analysis, hotel_name, include_charts, include_raw_data
                     )
 
                     if response and response.get("success"):
-                        st.session_state.excel_path = response['file_path']
-                        st.success(f"✅ Excel生成完了!")
+                        import base64
+                        # Decode base64 file data
+                        file_data = base64.b64decode(response['file_base64'])
+                        st.session_state.export_data = file_data
+                        st.session_state.export_filename = response['filename']
+                        st.success(f"✅ CSV生成完了!")
                         st.info(f"ファイルサイズ: {response['file_size'] / 1024:.1f}KB")
-                        st.info(f"生成時間: {response['export_time']:.2f}秒")
+                        if response.get('message'):
+                            st.info(response['message'])
 
-            # Download button (if Excel was generated)
-            if "excel_path" in st.session_state and st.session_state.excel_path:
-                import os
-                excel_path = st.session_state.excel_path
-
-                if os.path.exists(excel_path):
-                    with open(excel_path, "rb") as f:
-                        excel_data = f.read()
-
-                    st.download_button(
-                        label="💾 Excelファイルをダウンロード",
-                        data=excel_data,
-                        file_name=os.path.basename(excel_path),
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        use_container_width=True
-                    )
-
-                    # Preview Excel content
-                    st.markdown("---")
-                    st.subheader("📄 Excel内容プレビュー")
-
-                    if excel_path.endswith('.xlsx'):
-                        try:
-                            excel_file = pd.ExcelFile(excel_path)
-
-                            st.write(f"**シート数**: {len(excel_file.sheet_names)}")
-
-                            # Show preview of each sheet
-                            for sheet_name in excel_file.sheet_names:
-                                with st.expander(f"📊 {sheet_name}", expanded=(sheet_name == "サマリー")):
-                                    df = pd.read_excel(excel_path, sheet_name=sheet_name)
-                                    st.dataframe(df, use_container_width=True)
-                                    st.caption(f"行数: {len(df)}, 列数: {len(df.columns)}")
-                        except Exception as e:
-                            st.error(f"プレビュー表示エラー: {str(e)}")
-                    else:
-                        # Text file preview
-                        with open(excel_path, "r", encoding="utf-8") as f:
-                            content = f.read()
-                        st.text_area("ファイル内容", content, height=300)
+            # Download button (if CSV was generated)
+            if "export_data" in st.session_state and st.session_state.export_data:
+                st.download_button(
+                    label="💾 CSVファイルをダウンロード",
+                    data=st.session_state.export_data,
+                    file_name=st.session_state.export_filename,
+                    mime="text/csv",
+                    use_container_width=True
+                )
 
     # Results Tab
     with results_tab:
