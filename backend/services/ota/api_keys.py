@@ -1,43 +1,56 @@
 """
-OTA API Keys - Hardcoded Configuration
-このファイルは環境変数ではなく、プログラム側で直接管理します。
+OTA API Keys - Secure Configuration
+環境変数から認証情報を読み込みます。
 """
-
-# Booking.com API Credentials
-BOOKING_API_CONFIG = {
-    "url": "https://distribution-xml.booking.com/2.7/json/reviews",
-    "username": "YOUR_BOOKING_USERNAME",  # 実際のユーザー名に置き換え
-    "password": "YOUR_BOOKING_PASSWORD",  # 実際のパスワードに置き換え
-    "enabled": False  # 本番環境で有効化する場合はTrue
-}
-
-# Expedia API Credentials
-EXPEDIA_API_CONFIG = {
-    "api_key": "YOUR_EXPEDIA_API_KEY",  # 実際のAPIキーに置き換え
-    "api_secret": "YOUR_EXPEDIA_API_SECRET",  # 実際のシークレットに置き換え
-    "endpoint": "https://api.expedia.com/reviews/v3",
-    "enabled": False  # 本番環境で有効化する場合はTrue
-}
-
-# Agoda API Credentials
-AGODA_API_CONFIG = {
-    "api_key": "YOUR_AGODA_API_KEY",  # 実際のAPIキーに置き換え
-    "partner_id": "YOUR_AGODA_PARTNER_ID",  # 実際のパートナーIDに置き換え
-    "endpoint": "https://affiliateapi.agoda.com/reviews",
-    "enabled": False  # 本番環境で有効化する場合はTrue
-}
+import os
 
 
 def get_booking_credentials():
-    """Get Booking.com API credentials."""
-    return BOOKING_API_CONFIG
+    """
+    Get Booking.com API credentials from environment variables.
+
+    Required environment variables:
+    - BOOKING_USERNAME: Booking.com API username
+    - BOOKING_PASSWORD: Booking.com API password
+    - BOOKING_ENABLED: "true" to enable real API calls
+    """
+    return {
+        "url": "https://supply-xml.booking.com/review-api",
+        "username": os.getenv("BOOKING_USERNAME"),
+        "password": os.getenv("BOOKING_PASSWORD"),
+        "enabled": os.getenv("BOOKING_ENABLED", "false").lower() == "true"
+    }
 
 
 def get_expedia_credentials():
-    """Get Expedia API credentials."""
-    return EXPEDIA_API_CONFIG
+    """
+    Get Expedia API credentials from environment variables.
+
+    Required environment variables:
+    - EXPEDIA_API_KEY: Expedia API client ID
+    - EXPEDIA_API_SECRET: Expedia API client secret
+    - EXPEDIA_ENABLED: "true" to enable real API calls
+    """
+    return {
+        "api_key": os.getenv("EXPEDIA_API_KEY"),
+        "api_secret": os.getenv("EXPEDIA_API_SECRET"),
+        "endpoint": os.getenv("EXPEDIA_ENDPOINT", "https://api.expediagroup.com"),
+        "enabled": os.getenv("EXPEDIA_ENABLED", "false").lower() == "true"
+    }
 
 
 def get_agoda_credentials():
-    """Get Agoda API credentials."""
-    return AGODA_API_CONFIG
+    """
+    Get Agoda API credentials from environment variables.
+
+    Required environment variables:
+    - AGODA_API_KEY: Agoda API key
+    - AGODA_PARTNER_ID: Agoda partner ID
+    - AGODA_ENABLED: "true" to enable real API calls
+    """
+    return {
+        "api_key": os.getenv("AGODA_API_KEY"),
+        "partner_id": os.getenv("AGODA_PARTNER_ID"),
+        "endpoint": os.getenv("AGODA_ENDPOINT", "https://affiliateapi.agoda.com"),
+        "enabled": os.getenv("AGODA_ENABLED", "false").lower() == "true"
+    }
