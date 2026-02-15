@@ -67,7 +67,6 @@ class handler(BaseHTTPRequestHandler):
     async def _fetch_reviews(self, hotel_name: str, sources: list, max_reviews: int):
         """Fetch reviews from multiple OTA platforms."""
         all_reviews = []
-        tasks = []
 
         # Create clients
         clients = {}
@@ -78,17 +77,29 @@ class handler(BaseHTTPRequestHandler):
         if 'booking' in sources:
             clients['booking'] = BookingClient()
 
-        # Fetch reviews in parallel
+        # For each OTA, search for hotel and fetch reviews
         for source, client in clients.items():
-            tasks.append(client.fetch_reviews(hotel_name, limit=max_reviews))
+            try:
+                # Step 1: Search for hotel to get hotel_id
+                hotels = await client.search_hotels(hotel_name)
 
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+                if not hotels:
+                    continue
 
-        # Collect results
-        for result in results:
-            if isinstance(result, Exception):
-                continue  # Skip failed requests
-            all_reviews.extend(result)
+                # Use the first hotel result
+                hotel = hotels[0]
+                hotel_id = hotel.get('id', '')
+
+                if not hotel_id:
+                    continue
+
+                # Step 2: Fetch reviews using hotel_id
+                reviews = await client.fetch_reviews(hotel_id, limit=max_reviews)
+                all_reviews.extend(reviews)
+
+            except Exception as e:
+                # Skip failed requests and continue with other sources
+                continue
 
         return all_reviews[:max_reviews]
 
