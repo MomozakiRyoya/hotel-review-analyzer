@@ -70,11 +70,24 @@ class handler(BaseHTTPRequestHandler):
             # Calculate statistics
             total_reviews = len(reviews)
             avg_rating = sum(r.rating for r in reviews) / total_reviews if total_reviews > 0 else 0
+            avg_sentiment = sum(s["score"] for s in sentiment_results if s["score"] is not None) / total_reviews if total_reviews > 0 else 0
+
             sentiment_distribution = {
                 "positive": len([s for s in sentiment_results if s["sentiment"] == "positive"]),
                 "neutral": len([s for s in sentiment_results if s["sentiment"] == "neutral"]),
                 "negative": len([s for s in sentiment_results if s["sentiment"] == "negative"])
             }
+
+            # Rating distribution
+            rating_distribution = {}
+            for review in reviews:
+                rating_key = str(int(review.rating))
+                rating_distribution[rating_key] = rating_distribution.get(rating_key, 0) + 1
+
+            # Format keywords as expected by frontend
+            formatted_keywords = [{"keyword": kw, "frequency": freq, "score": 0, "category": "general"} for kw, freq in keywords]
+            formatted_positive = [{"keyword": kw, "frequency": freq} for kw, freq in positive_keywords]
+            formatted_negative = [{"keyword": kw, "frequency": freq} for kw, freq in negative_keywords]
 
             # Send response
             self.send_response(200)
@@ -84,16 +97,19 @@ class handler(BaseHTTPRequestHandler):
 
             response = {
                 "success": True,
-                "statistics": {
+                "message": f"Successfully analyzed {total_reviews} reviews",
+                "analysis_result": {
                     "total_reviews": total_reviews,
                     "average_rating": round(avg_rating, 2),
-                    "sentiment_distribution": sentiment_distribution
-                },
-                "sentiment_results": sentiment_results,
-                "keywords": {
-                    "all": keywords,
-                    "positive": positive_keywords,
-                    "negative": negative_keywords
+                    "average_sentiment": round(avg_sentiment, 3),
+                    "processing_time": 0,
+                    "sentiment_distribution": sentiment_distribution,
+                    "rating_distribution": rating_distribution,
+                    "top_keywords": formatted_keywords,
+                    "positive_keywords": formatted_positive,
+                    "negative_keywords": formatted_negative,
+                    "ota_analyses": [],
+                    "sentiment_trend": []
                 }
             }
             self.wfile.write(json.dumps(response, ensure_ascii=False).encode('utf-8'))
