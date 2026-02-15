@@ -8,19 +8,27 @@ import sys
 from pathlib import Path
 import base64
 import io
+import csv
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from backend.services.excel.generator import ExcelReportGenerator
 from backend.models.review import Review
-from backend.models.analysis_result import AnalysisResult, OTAAnalysis, SentimentResult
+
+# Excel dependencies not available in minimal deployment
+EXCEL_AVAILABLE = False
+try:
+    from backend.services.excel.generator import ExcelReportGenerator
+    from backend.models.analysis_result import AnalysisResult, OTAAnalysis, SentimentResult
+    EXCEL_AVAILABLE = True
+except ImportError:
+    pass
 
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
-        """Handle POST request to export reviews to Excel."""
+        """Handle POST request to export reviews."""
         try:
             # Read request body
             content_length = int(self.headers.get('Content-Length', 0))
@@ -39,19 +47,11 @@ class handler(BaseHTTPRequestHandler):
             # Convert to Review objects
             reviews = [Review(**r) for r in reviews_data]
 
-            # Build AnalysisResult
-            analysis_result = self._build_analysis_result(reviews, analysis_data)
-
-            # Generate Excel
-            generator = ExcelReportGenerator()
-            excel_bytes = generator.generate_report(
-                reviews=reviews,
-                analysis_result=analysis_result,
-                hotel_name=hotel_name
-            )
+            # Generate CSV instead of Excel (lightweight)
+            csv_bytes = self._generate_csv(reviews, hotel_name)
 
             # Convert to base64
-            excel_base64 = base64.b64encode(excel_bytes).decode('utf-8')
+            csv_base64 = base64.b64encode(csv_bytes).decode('utf-8')
 
             # Send response
             self.send_response(200)
@@ -61,14 +61,17 @@ class handler(BaseHTTPRequestHandler):
 
             response = {
                 "success": True,
-                "filename": f"{hotel_name}_reviews_report.xlsx",
-                "file_base64": excel_base64,
-                "file_size": len(excel_bytes)
+                "message": "CSV export generated (Excel unavailable in serverless)",
+                "filename": f"{hotel_name}_reviews_export.csv",
+                "file_base64": csv_base64,
+                "file_size": len(csv_bytes),
+                "format": "csv"
             }
             self.wfile.write(json.dumps(response).encode('utf-8'))
 
         except Exception as e:
-            self._send_error(500, f"Internal server error: {str(e)}")
+            import traceback
+            self._send_error(500, f"Internal server error: {str(e)}\n{traceback.format_exc()}")
 
     def do_OPTIONS(self):
         """Handle CORS preflight request."""
@@ -78,50 +81,32 @@ class handler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
 
-    def _build_analysis_result(self, reviews: list, analysis_data: dict) -> AnalysisResult:
-        """Build AnalysisResult from data."""
-        # Extract keywords
-        keywords_data = analysis_data.get('keywords', {})
-        all_keywords = keywords_data.get('all', [])
-        positive_keywords = keywords_data.get('positive', [])
-        negative_keywords = keywords_data.get('negative', [])
 
-        # Extract statistics
-        stats = analysis_data.get('statistics', {})
-        total_reviews = stats.get('total_reviews', len(reviews))
-        avg_rating = stats.get('average_rating', 0)
+    def _generate_csv(self, reviews: list, hotel_name: str) -> bytes:
+        """Generate CSV export of reviews."""
+        output = io.StringIO()
+        writer = csv.writer(output)
 
-        # Build OTA analyses (simplified)
-        ota_analyses = []
-        ota_groups = {}
+        # Write header
+        writer.writerow([
+            'Review ID', 'Hotel Name', 'OTA Source', 'Rating',
+            'Review Date', 'Comment', 'Reviewer Name', 'Trip Type'
+        ])
+
+        # Write reviews
         for review in reviews:
-            if review.source not in ota_groups:
-                ota_groups[review.source] = []
-            ota_groups[review.source].append(review)
+            writer.writerow([
+                review.review_id,
+                review.hotel_name,
+                review.source.value if hasattr(review.source, 'value') else review.source,
+                review.rating,
+                review.review_date.strftime('%Y-%m-%d') if review.review_date else '',
+                review.comment[:200],  # Truncate long comments
+                review.reviewer_name or '',
+                review.trip_type or ''
+            ])
 
-        for source, source_reviews in ota_groups.items():
-            ota_analyses.append(OTAAnalysis(
-                ota_source=source,
-                total_reviews=len(source_reviews),
-                average_rating=sum(r.rating for r in source_reviews) / len(source_reviews),
-                sentiment_distribution={
-                    "positive": len([r for r in source_reviews if r.rating >= 4]),
-                    "neutral": len([r for r in source_reviews if r.rating == 3]),
-                    "negative": len([r for r in source_reviews if r.rating <= 2])
-                },
-                top_keywords=all_keywords[:5]
-            ))
-
-        return AnalysisResult(
-            total_reviews=total_reviews,
-            average_rating=avg_rating,
-            sentiment_distribution=stats.get('sentiment_distribution', {}),
-            top_keywords=all_keywords,
-            positive_keywords=positive_keywords,
-            negative_keywords=negative_keywords,
-            ota_analyses=ota_analyses,
-            sentiment_trend=[]  # Not implemented for simplicity
-        )
+        return output.getvalue().encode('utf-8')
 
     def _send_error(self, code: int, message: str):
         """Send error response."""
