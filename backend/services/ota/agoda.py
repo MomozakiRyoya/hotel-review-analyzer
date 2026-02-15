@@ -60,7 +60,8 @@ class AgodaClient(OTAClient):
         hotel_id: str,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
-        limit: int = 100
+        limit: int = 100,
+        languages: Optional[List[str]] = None
     ) -> List[Review]:
         """
         Fetch reviews from Agoda.
@@ -76,12 +77,15 @@ class AgodaClient(OTAClient):
         """
         logger.info(f"Fetching Agoda reviews for hotel: {hotel_id}")
 
+        if languages is None:
+            languages = ['en', 'ja']
+
         if not self.enabled:
             logger.info("Using demo data - Agoda API not enabled")
-            reviews = self._generate_demo_reviews(hotel_id, limit)
+            reviews = self._generate_demo_reviews(hotel_id, limit, languages)
         else:
             # TODO: Implement real Agoda API call
-            reviews = self._generate_demo_reviews(hotel_id, limit)
+            reviews = self._generate_demo_reviews(hotel_id, limit, languages)
 
         # Filter by date
         reviews = self._filter_reviews_by_date(reviews, start_date, end_date)
@@ -140,68 +144,70 @@ class AgodaClient(OTAClient):
             "review_count": 320
         }]
 
-    def _generate_demo_reviews(self, hotel_id: str, count: int) -> List[Review]:
+    def _generate_demo_reviews(self, hotel_id: str, count: int, languages: List[str]) -> List[Review]:
         """Generate realistic demo reviews for Agoda."""
         reviews = []
         base_date = datetime.utcnow()
 
-        # Agoda向けのリアルなレビューテンプレート
-        demo_templates = [
-            {
-                "title": "Amazing hotel experience",
-                "comment": "The hotel exceeded our expectations. The room was spacious and clean with a beautiful view. Staff were incredibly helpful and attentive. Highly recommended!",
-                "rating": 4.8
-            },
-            {
-                "title": "Great location and service",
-                "comment": "Perfect location in the city center. Easy access to shopping and restaurants. The concierge helped us book tours and restaurants. Very satisfied with our stay.",
-                "rating": 4.5
-            },
-            {
-                "title": "Comfortable and convenient",
-                "comment": "Clean and comfortable rooms with modern amenities. Breakfast buffet had good variety. WiFi was fast and reliable. Good value for the price.",
-                "rating": 4.2
-            },
-            {
-                "title": "Decent stay",
-                "comment": "The hotel is okay for the price. Room was clean but a bit dated. Staff were friendly. Location is convenient for exploring the area.",
-                "rating": 3.8
-            },
-            {
-                "title": "Below expectations",
-                "comment": "Room was smaller than photos suggested. Noise from the street was problematic. Check-in took longer than expected. Breakfast options were limited.",
-                "rating": 2.8
-            }
-        ]
+        # Multi-language review templates
+        review_templates = {
+            'en': [
+                {"title": "Amazing experience", "comment": "The hotel exceeded our expectations. Spacious and clean. Highly recommended!", "rating": 4.8},
+                {"title": "Great location", "comment": "Perfect location in city center. Easy access to shopping and restaurants.", "rating": 4.5},
+                {"title": "Comfortable stay", "comment": "Clean rooms with modern amenities. Good value for the price.", "rating": 4.2}
+            ],
+            'ja': [
+                {"title": "素晴らしい体験", "comment": "ホテルは期待を超えました。広くて清潔。強くお勧めします！", "rating": 4.8},
+                {"title": "素晴らしい立地", "comment": "市内中心部の完璧な立地。ショッピングやレストランへのアクセスが簡単。", "rating": 4.5},
+                {"title": "快適な滞在", "comment": "モダンな設備の清潔な部屋。価格に見合った価値。", "rating": 4.2}
+            ],
+            'ko': [
+                {"title": "놀라운 경험", "comment": "호텔은 우리의 기대를 뛰어넘었습니다. 넓고 깨끗합니다. 강력 추천!", "rating": 4.8},
+                {"title": "훌륭한 위치", "comment": "도심의 완벽한 위치. 쇼핑과 레스토랑 접근이 쉽습니다.", "rating": 4.5},
+                {"title": "편안한 숙박", "comment": "현대적인 편의시설이 있는 깨끗한 객실. 가격 대비 좋은 가치.", "rating": 4.2}
+            ],
+            'zh': [
+                {"title": "惊人的体验", "comment": "酒店超出了我们的期望。宽敞干净。强烈推荐！", "rating": 4.8},
+                {"title": "绝佳位置", "comment": "市中心的完美位置。购物和餐厅交通便利。", "rating": 4.5},
+                {"title": "舒适的住宿", "comment": "配备现代设施的干净房间。物有所值。", "rating": 4.2}
+            ]
+        }
 
-        for i in range(min(count, 50)):
-            template = random.choice(demo_templates)
-            review_date = base_date - timedelta(days=random.randint(1, 180))
+        reviews_per_language = count // len(languages) if languages else count
 
-            raw_data = {
-                "id": f"agoda_demo_{hotel_id}_{i}",
-                "title": template["title"],
-                "comment": template["comment"],
-                "rating": template["rating"],
-                "rating_details": {
-                    "cleanliness": max(1, min(5, template["rating"] + random.uniform(-0.5, 0.5))),
-                    "facilities": max(1, min(5, template["rating"] + random.uniform(-0.5, 0.5))),
-                    "staff": max(1, min(5, template["rating"] + random.uniform(-0.5, 0.5))),
-                    "value_for_money": max(1, min(5, template["rating"] + random.uniform(-0.5, 0.5)))
-                },
-                "reviewer_name": f"Guest{random.randint(1000, 9999)}",
-                "age_group": random.choice(["18-24", "25-34", "35-44", "45-54", "55+"]),
-                "gender": random.choice(["Male", "Female", None]),
-                "stay_date": review_date - timedelta(days=random.randint(3, 30)),
-                "review_date": review_date,
-                "trip_type": random.choice(["Business", "Leisure", "Family", "Solo", "Couples"]),
-                "room_type": random.choice(["Standard Room", "Deluxe Room", "Suite", "Superior Room"]),
-                "helpful_count": random.randint(0, 20),
-                "url": f"https://www.agoda.com/hotel/{hotel_id}/reviews"
-            }
+        for lang in languages:
+            templates = review_templates.get(lang, review_templates['en'])
+            lang_count = min(reviews_per_language, len(templates) * 10)
 
-            review = self.normalize_review(raw_data, hotel_id, f"Agoda Hotel {hotel_id}")
-            reviews.append(review)
+            for i in range(lang_count):
+                template = templates[i % len(templates)]
+                review_date = base_date - timedelta(days=random.randint(1, 180))
+
+                raw_data = {
+                    "id": f"agoda_demo_{hotel_id}_{lang}_{i}",
+                    "title": template["title"],
+                    "comment": template["comment"],
+                    "rating": template["rating"],
+                    "rating_details": {
+                        "cleanliness": max(1, min(5, template["rating"] + random.uniform(-0.5, 0.5))),
+                        "facilities": max(1, min(5, template["rating"] + random.uniform(-0.5, 0.5))),
+                        "staff": max(1, min(5, template["rating"] + random.uniform(-0.5, 0.5))),
+                        "value_for_money": max(1, min(5, template["rating"] + random.uniform(-0.5, 0.5)))
+                    },
+                    "reviewer_name": f"Guest{random.randint(1000, 9999)}",
+                    "age_group": random.choice(["18-24", "25-34", "35-44", "45-54", "55+"]),
+                    "gender": random.choice(["Male", "Female", None]),
+                    "stay_date": review_date - timedelta(days=random.randint(3, 30)),
+                    "review_date": review_date,
+                    "trip_type": random.choice(["Business", "Leisure", "Family", "Solo", "Couples"]),
+                    "room_type": random.choice(["Standard Room", "Deluxe Room", "Suite", "Superior Room"]),
+                    "helpful_count": random.randint(0, 20),
+                    "url": f"https://www.agoda.com/hotel/{hotel_id}/reviews",
+                    "language": lang
+                }
+
+                review = self.normalize_review(raw_data, hotel_id, f"Agoda Hotel {hotel_id}")
+                reviews.append(review)
 
         logger.info(f"Generated {len(reviews)} Agoda demo reviews")
         return reviews

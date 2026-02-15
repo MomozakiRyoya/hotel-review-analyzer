@@ -60,7 +60,8 @@ class ExpediaClient(OTAClient):
         hotel_id: str,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
-        limit: int = 100
+        limit: int = 100,
+        languages: Optional[List[str]] = None
     ) -> List[Review]:
         """
         Fetch reviews from Expedia.
@@ -76,12 +77,15 @@ class ExpediaClient(OTAClient):
         """
         logger.info(f"Fetching Expedia reviews for hotel: {hotel_id}")
 
+        if languages is None:
+            languages = ['en', 'ja']
+
         if not self.enabled:
             logger.info("Using demo data - Expedia API not enabled")
-            reviews = self._generate_demo_reviews(hotel_id, limit)
+            reviews = self._generate_demo_reviews(hotel_id, limit, languages)
         else:
             # TODO: Implement real Expedia API call
-            reviews = self._generate_demo_reviews(hotel_id, limit)
+            reviews = self._generate_demo_reviews(hotel_id, limit, languages)
 
         # Filter by date
         reviews = self._filter_reviews_by_date(reviews, start_date, end_date)
@@ -140,68 +144,70 @@ class ExpediaClient(OTAClient):
             "review_count": 250
         }]
 
-    def _generate_demo_reviews(self, hotel_id: str, count: int) -> List[Review]:
+    def _generate_demo_reviews(self, hotel_id: str, count: int, languages: List[str]) -> List[Review]:
         """Generate realistic demo reviews for Expedia."""
         reviews = []
         base_date = datetime.utcnow()
 
-        # Expedia向けのリアルなレビューテンプレート
-        demo_templates = [
-            {
-                "title": "Excellent stay!",
-                "comment": "Great location near the station. Clean rooms and friendly staff. Would definitely stay again. Breakfast was delicious with many options.",
-                "rating": 4.5
-            },
-            {
-                "title": "Good value for money",
-                "comment": "The hotel offers great value. Rooms are a bit small but well-maintained. Staff was very helpful and spoke good English.",
-                "rating": 4.0
-            },
-            {
-                "title": "Perfect for business trip",
-                "comment": "Convenient location for business travelers. Fast WiFi and comfortable work desk. Quiet rooms ensured good rest.",
-                "rating": 4.5
-            },
-            {
-                "title": "Nice hotel overall",
-                "comment": "Enjoyed our stay. The hotel is clean and well-located. Some facilities could be updated but overall a pleasant experience.",
-                "rating": 3.5
-            },
-            {
-                "title": "Disappointed",
-                "comment": "Room was smaller than expected and air conditioning was not working properly. Service was slow during check-in.",
-                "rating": 2.5
-            }
-        ]
+        # Multi-language review templates
+        review_templates = {
+            'en': [
+                {"title": "Excellent stay!", "comment": "Great location near the station. Clean rooms and friendly staff.", "rating": 4.5},
+                {"title": "Good value", "comment": "The hotel offers great value. Rooms are well-maintained.", "rating": 4.0},
+                {"title": "Perfect for business", "comment": "Convenient location. Fast WiFi and comfortable work desk.", "rating": 4.5}
+            ],
+            'ja': [
+                {"title": "最高の滞在！", "comment": "駅に近い素晴らしい立地。部屋は清潔でスタッフも親切でした。", "rating": 4.5},
+                {"title": "お値打ち", "comment": "ホテルは素晴らしいコスパを提供しています。部屋は良く維持されています。", "rating": 4.0},
+                {"title": "ビジネスに最適", "comment": "便利な立地。高速WiFiと快適なワークデスク。", "rating": 4.5}
+            ],
+            'ko': [
+                {"title": "훌륭한 숙박!", "comment": "역 근처의 좋은 위치. 깨끗한 객실과 친절한 직원.", "rating": 4.5},
+                {"title": "좋은 가치", "comment": "호텔은 훌륭한 가치를 제공합니다. 객실은 잘 관리되어 있습니다.", "rating": 4.0},
+                {"title": "비즈니스에 완벽", "comment": "편리한 위치. 빠른 WiFi와 편안한 업무용 책상.", "rating": 4.5}
+            ],
+            'zh': [
+                {"title": "优秀的住宿！", "comment": "靠近车站的绝佳位置。房间干净，员工友好。", "rating": 4.5},
+                {"title": "物有所值", "comment": "酒店提供极好的性价比。房间维护良好。", "rating": 4.0},
+                {"title": "商务的完美选择", "comment": "位置便利。快速WiFi和舒适的办公桌。", "rating": 4.5}
+            ]
+        }
 
-        for i in range(min(count, 50)):
-            template = random.choice(demo_templates)
-            review_date = base_date - timedelta(days=random.randint(1, 180))
+        reviews_per_language = count // len(languages) if languages else count
 
-            raw_data = {
-                "id": f"expedia_demo_{hotel_id}_{i}",
-                "title": template["title"],
-                "comment": template["comment"],
-                "rating": template["rating"],
-                "rating_details": {
-                    "cleanliness": max(1, min(5, template["rating"] + random.uniform(-0.5, 0.5))),
-                    "service": max(1, min(5, template["rating"] + random.uniform(-0.5, 0.5))),
-                    "comfort": max(1, min(5, template["rating"] + random.uniform(-0.5, 0.5))),
-                    "location": max(1, min(5, template["rating"] + random.uniform(-0.5, 0.5)))
-                },
-                "reviewer_name": f"Traveler{random.randint(1000, 9999)}",
-                "age_group": random.choice(["18-24", "25-34", "35-44", "45-54", "55+"]),
-                "gender": random.choice(["Male", "Female", None]),
-                "stay_date": review_date - timedelta(days=random.randint(3, 30)),
-                "review_date": review_date,
-                "trip_type": random.choice(["Business", "Leisure", "Family", "Couples"]),
-                "room_type": random.choice(["Standard", "Deluxe", "Suite"]),
-                "helpful_count": random.randint(0, 15),
-                "url": f"https://www.expedia.com/hotel/{hotel_id}/reviews"
-            }
+        for lang in languages:
+            templates = review_templates.get(lang, review_templates['en'])
+            lang_count = min(reviews_per_language, len(templates) * 10)
 
-            review = self.normalize_review(raw_data, hotel_id, f"Expedia Hotel {hotel_id}")
-            reviews.append(review)
+            for i in range(lang_count):
+                template = templates[i % len(templates)]
+                review_date = base_date - timedelta(days=random.randint(1, 180))
+
+                raw_data = {
+                    "id": f"expedia_demo_{hotel_id}_{lang}_{i}",
+                    "title": template["title"],
+                    "comment": template["comment"],
+                    "rating": template["rating"],
+                    "rating_details": {
+                        "cleanliness": max(1, min(5, template["rating"] + random.uniform(-0.5, 0.5))),
+                        "service": max(1, min(5, template["rating"] + random.uniform(-0.5, 0.5))),
+                        "comfort": max(1, min(5, template["rating"] + random.uniform(-0.5, 0.5))),
+                        "location": max(1, min(5, template["rating"] + random.uniform(-0.5, 0.5)))
+                    },
+                    "reviewer_name": f"Traveler{random.randint(1000, 9999)}",
+                    "age_group": random.choice(["18-24", "25-34", "35-44", "45-54", "55+"]),
+                    "gender": random.choice(["Male", "Female", None]),
+                    "stay_date": review_date - timedelta(days=random.randint(3, 30)),
+                    "review_date": review_date,
+                    "trip_type": random.choice(["Business", "Leisure", "Family", "Couples"]),
+                    "room_type": random.choice(["Standard", "Deluxe", "Suite"]),
+                    "helpful_count": random.randint(0, 15),
+                    "url": f"https://www.expedia.com/hotel/{hotel_id}/reviews",
+                    "language": lang
+                }
+
+                review = self.normalize_review(raw_data, hotel_id, f"Expedia Hotel {hotel_id}")
+                reviews.append(review)
 
         logger.info(f"Generated {len(reviews)} Expedia demo reviews")
         return reviews

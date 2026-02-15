@@ -43,6 +43,7 @@ class handler(BaseHTTPRequestHandler):
             # Extract parameters
             hotel_name = data.get('hotel_name', '')
             sources = data.get('sources', ['booking', 'expedia', 'agoda'])
+            languages = data.get('languages', ['en', 'ja'])
             max_reviews = data.get('max_reviews', 50)
 
             if not hotel_name:
@@ -50,7 +51,7 @@ class handler(BaseHTTPRequestHandler):
                 return
 
             # Fetch reviews from OTA platforms
-            reviews = asyncio.run(self._fetch_reviews(hotel_name, sources, max_reviews))
+            reviews = asyncio.run(self._fetch_reviews(hotel_name, sources, languages, max_reviews))
 
             # Send response
             self.send_response(200)
@@ -79,7 +80,7 @@ class handler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
 
-    async def _fetch_reviews(self, hotel_name: str, sources: list, max_reviews: int):
+    async def _fetch_reviews(self, hotel_name: str, sources: list, languages: list, max_reviews: int):
         """Fetch reviews from multiple OTA platforms."""
         all_reviews = []
 
@@ -112,8 +113,8 @@ class handler(BaseHTTPRequestHandler):
                 if not hotel_id:
                     continue
 
-                # Step 2: Fetch reviews using hotel_id
-                reviews = await client.fetch_reviews(hotel_id, limit=reviews_per_ota)
+                # Step 2: Fetch reviews using hotel_id with language filter
+                reviews = await client.fetch_reviews(hotel_id, limit=reviews_per_ota, languages=languages)
                 all_reviews.extend(reviews)
 
             except Exception as e:

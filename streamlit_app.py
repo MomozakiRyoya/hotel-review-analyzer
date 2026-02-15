@@ -34,7 +34,7 @@ def check_backend_health() -> bool:
         return False
 
 
-def fetch_reviews(hotel_name: str, ota_sources: list, start_date, end_date, limit: int):
+def fetch_reviews(hotel_name: str, ota_sources: list, languages: list, start_date, end_date, limit: int):
     """Fetch reviews from backend API."""
     try:
         response = httpx.post(
@@ -42,6 +42,7 @@ def fetch_reviews(hotel_name: str, ota_sources: list, start_date, end_date, limi
             json={
                 "hotel_name": hotel_name,
                 "sources": ota_sources,
+                "languages": languages,
                 "max_reviews": limit
             },
             timeout=180.0  # 3 minutes
@@ -158,6 +159,19 @@ def main():
         with col_ota3:
             use_agoda = st.checkbox("Agoda", value=True)
 
+        # Language Selection
+        st.write("**言語選択**")
+        col_lang1, col_lang2, col_lang3, col_lang4 = st.columns(4)
+
+        with col_lang1:
+            use_japanese = st.checkbox("日本語", value=True)
+        with col_lang2:
+            use_english = st.checkbox("English", value=True)
+        with col_lang3:
+            use_korean = st.checkbox("한국어", value=False)
+        with col_lang4:
+            use_chinese = st.checkbox("中文", value=False)
+
         # Hotel search
         hotel_name = st.text_input(
             "ホテル名",
@@ -208,12 +222,24 @@ def main():
                 if use_agoda:
                     ota_sources.append("agoda")
 
+                languages = []
+                if use_japanese:
+                    languages.append("ja")
+                if use_english:
+                    languages.append("en")
+                if use_korean:
+                    languages.append("ko")
+                if use_chinese:
+                    languages.append("zh")
+
                 if not ota_sources:
                     st.warning("少なくとも1つのOTAを選択してください")
+                elif not languages:
+                    st.warning("少なくとも1つの言語を選択してください")
                 else:
                     with st.spinner("口コミを取得中..."):
                         response = fetch_reviews(
-                            hotel_name, ota_sources,
+                            hotel_name, ota_sources, languages,
                             start_date, end_date, review_limit
                         )
 
