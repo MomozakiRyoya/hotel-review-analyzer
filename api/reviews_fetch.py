@@ -92,6 +92,10 @@ class handler(BaseHTTPRequestHandler):
         if 'agoda' in sources:
             clients['agoda'] = AgodaClient()
 
+        # Calculate reviews per OTA (distribute evenly)
+        num_otas = len(clients)
+        reviews_per_ota = max_reviews // num_otas if num_otas > 0 else max_reviews
+
         # For each OTA, search for hotel and fetch reviews
         for source, client in clients.items():
             try:
@@ -109,7 +113,7 @@ class handler(BaseHTTPRequestHandler):
                     continue
 
                 # Step 2: Fetch reviews using hotel_id
-                reviews = await client.fetch_reviews(hotel_id, limit=max_reviews)
+                reviews = await client.fetch_reviews(hotel_id, limit=reviews_per_ota)
                 all_reviews.extend(reviews)
 
             except Exception as e:
