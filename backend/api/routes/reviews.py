@@ -12,9 +12,9 @@ from backend.api.schemas.request import ReviewFetchRequest, AnalyzeRequest, Expo
 from backend.api.schemas.response import ReviewFetchResponse, AnalyzeResponse, ExportResponse, ErrorResponse
 from backend.models.review import Review, ReviewStats, OTASource
 from backend.models.analysis_result import AnalysisResult, OTAAnalysis, SentimentTrend
-from backend.services.ota.rakuten import RakutenClient
-from backend.services.ota.jalan import JalanClient
 from backend.services.ota.booking import BookingClient
+from backend.services.ota.expedia import ExpediaClient
+from backend.services.ota.agoda import AgodaClient
 import os
 
 # Use lightweight version for Vercel deployment
@@ -40,9 +40,9 @@ _analysis_result_storage: Optional[AnalysisResult] = None
 
 # OTA client mapping
 OTA_CLIENTS = {
-    "rakuten": RakutenClient,
-    "jalan": JalanClient,
-    "booking": BookingClient
+    "booking": BookingClient,
+    "expedia": ExpediaClient,
+    "agoda": AgodaClient
 }
 
 

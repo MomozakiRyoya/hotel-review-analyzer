@@ -122,25 +122,10 @@ def main():
         st.header("⚙️ 設定")
 
         st.subheader("API認証情報")
-        st.caption("※APIキーなしでもデモデータで動作確認できます")
+        st.caption("※APIキーは backend/services/ota/api_keys.py で管理されています")
+        st.caption("※デモモードで動作確認できます")
 
-        with st.expander("楽天トラベル", expanded=False):
-            rakuten_app_id = st.text_input(
-                "Application ID",
-                type="password",
-                help="楽天トラベルのApplication ID"
-            )
-
-        with st.expander("じゃらん", expanded=False):
-            jalan_api_key = st.text_input(
-                "API Key",
-                type="password",
-                help="じゃらんのAPI Key"
-            )
-
-        with st.expander("Booking.com", expanded=False):
-            booking_username = st.text_input("Username")
-            booking_password = st.text_input("Password", type="password")
+        st.info("🔒 APIキーはプログラム側で管理\n\nBackend設定ファイルで認証情報を設定してください")
 
         st.markdown("---")
         st.success("✅ バックエンド接続: 正常")
@@ -164,11 +149,11 @@ def main():
         col_ota1, col_ota2, col_ota3 = st.columns(3)
 
         with col_ota1:
-            use_rakuten = st.checkbox("楽天トラベル", value=True)
+            use_booking = st.checkbox("Booking.com", value=True)
         with col_ota2:
-            use_jalan = st.checkbox("じゃらん", value=True)
+            use_expedia = st.checkbox("Expedia", value=True)
         with col_ota3:
-            use_booking = st.checkbox("Booking.com", value=False)
+            use_agoda = st.checkbox("Agoda", value=True)
 
         # Hotel search
         hotel_name = st.text_input(
@@ -213,12 +198,12 @@ def main():
                 st.warning("ホテル名を入力してください")
             else:
                 ota_sources = []
-                if use_rakuten:
-                    ota_sources.append("rakuten")
-                if use_jalan:
-                    ota_sources.append("jalan")
                 if use_booking:
                     ota_sources.append("booking")
+                if use_expedia:
+                    ota_sources.append("expedia")
+                if use_agoda:
+                    ota_sources.append("agoda")
 
                 if not ota_sources:
                     st.warning("少なくとも1つのOTAを選択してください")

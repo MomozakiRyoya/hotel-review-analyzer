@@ -12,7 +12,7 @@ class ReviewFetchRequest(BaseModel):
     hotel_name: str = Field(..., description="Hotel name to search")
     ota_sources: List[str] = Field(
         ...,
-        description="List of OTA sources (rakuten, jalan, booking)"
+        description="List of OTA sources (booking, expedia, agoda)"
     )
     start_date: Optional[datetime] = Field(
         None,
@@ -33,7 +33,7 @@ class ReviewFetchRequest(BaseModel):
         json_schema_extra = {
             "example": {
                 "hotel_name": "東京ホテル",
-                "ota_sources": ["rakuten", "jalan"],
+                "ota_sources": ["booking", "expedia", "agoda"],
                 "start_date": "2024-01-01T00:00:00",
                 "end_date": "2025-01-15T23:59:59",
                 "limit_per_ota": 100

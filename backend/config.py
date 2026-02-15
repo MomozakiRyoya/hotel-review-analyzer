@@ -3,6 +3,7 @@ Configuration management for the Hotel Review Analyzer application.
 """
 import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
 from pathlib import Path
 from typing import Optional
 
@@ -14,15 +15,24 @@ class Settings(BaseSettings):
     app_name: str = "Hotel Review Analyzer"
     app_version: str = "1.0.0"
     debug: bool = True
+    use_demo_reviews: bool = True  # Enable demo reviews when scraping fails
+
+    @field_validator('debug', 'use_demo_reviews', mode='before')
+    @classmethod
+    def parse_bool(cls, v):
+        """Parse boolean values from environment variables."""
+        if isinstance(v, bool):
+            return v
+        if isinstance(v, str):
+            return v.strip().lower() in ('true', '1', 'yes', 'on')
+        return bool(v)
 
     # Server Settings
     backend_host: str = "0.0.0.0"
     backend_port: int = 8000
     streamlit_port: int = 8501
 
-    # OTA API Credentials
-    rakuten_app_id: Optional[str] = None
-    jalan_api_key: Optional[str] = None
+    # OTA API Credentials (for reference only - actual keys are in backend/services/ota/api_keys.py)
     booking_api_url: str = "https://distribution-xml.booking.com/2.7/json/reviews"
     booking_username: Optional[str] = None
     booking_password: Optional[str] = None

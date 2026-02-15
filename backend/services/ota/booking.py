@@ -8,7 +8,7 @@ import random
 
 from backend.models.review import Review, OTASource
 from backend.services.ota.base import OTAClient
-from backend.config import settings
+from backend.services.ota.api_keys import get_booking_credentials
 from backend.utils.exceptions import HotelNotFoundError, ReviewFetchError, AuthenticationError
 
 
@@ -20,11 +20,14 @@ class BookingClient(OTAClient):
     def __init__(self):
         """Initialize Booking.com client."""
         super().__init__()
-        self.username = settings.booking_username
-        self.password = settings.booking_password
+        self.config = get_booking_credentials()
+        self.username = self.config.get("username")
+        self.password = self.config.get("password")
+        self.api_url = self.config.get("url")
+        self.enabled = self.config.get("enabled", False)
 
-        if not self.username or not self.password:
-            logger.warning("Booking.com credentials not configured")
+        if not self.enabled:
+            logger.warning("Booking.com API not enabled - using demo data")
 
     def _get_source(self) -> OTASource:
         """Get OTA source identifier."""
@@ -54,25 +57,22 @@ class BookingClient(OTAClient):
         """
         logger.info(f"Searching Booking.com for hotel: {hotel_name}")
 
-        if not self.username or not self.password:
-            logger.warning("Using mock data - Booking.com credentials not configured")
+        if not self.enabled:
+            logger.info("Using demo data - Booking.com API not enabled")
+            return self._mock_search_hotels(hotel_name)
 
-        # Mock implementation
-        mock_results = [
-            {
-                "id": "booking_hotel_001",
-                "name": hotel_name,
-                "url": "https://www.booking.com/hotel/jp/sample.html",
-                "rating": 8.5,  # Booking uses 10-point scale
-                "review_count": 180
-            }
-        ]
+        # TODO: Implement real Booking.com API call
+        return self._mock_search_hotels(hotel_name)
 
-        if not mock_results:
-            raise HotelNotFoundError(f"No hotels found for: {hotel_name}")
-
-        logger.info(f"Found {len(mock_results)} hotels on Booking.com")
-        return mock_results
+    def _mock_search_hotels(self, hotel_name: str) -> List[dict]:
+        """Mock hotel search for demo."""
+        return [{
+            "id": "booking_hotel_001",
+            "name": hotel_name,
+            "url": "https://www.booking.com/hotel/jp/sample.html",
+            "rating": 8.5,  # Booking uses 10-point scale
+            "review_count": 180
+        }]
 
     async def fetch_reviews(
         self,
@@ -102,25 +102,21 @@ class BookingClient(OTAClient):
         """
         logger.info(f"Fetching Booking.com reviews for hotel: {hotel_id}")
 
-        if not self.username or not self.password:
-            logger.warning("Using mock data - Booking.com credentials not configured")
-
-        try:
-            # Mock implementation
+        if not self.enabled:
+            logger.info("Using demo data - Booking.com API not enabled")
+            reviews = self._generate_mock_reviews(hotel_id, limit)
+        else:
+            # TODO: Implement real Booking.com API call
             reviews = self._generate_mock_reviews(hotel_id, limit)
 
-            # Filter by date
-            reviews = self._filter_reviews_by_date(reviews, start_date, end_date)
+        # Filter by date
+        reviews = self._filter_reviews_by_date(reviews, start_date, end_date)
 
-            # Apply limit
-            reviews = self._limit_reviews(reviews, limit)
+        # Apply limit
+        reviews = self._limit_reviews(reviews, limit)
 
-            logger.info(f"Fetched {len(reviews)} reviews from Booking.com")
-            return reviews
-
-        except Exception as e:
-            logger.error(f"Failed to fetch Booking.com reviews: {str(e)}")
-            raise ReviewFetchError(f"Booking.com review fetch failed: {str(e)}")
+        logger.info(f"Fetched {len(reviews)} reviews from Booking.com")
+        return reviews
 
     def normalize_review(
         self,

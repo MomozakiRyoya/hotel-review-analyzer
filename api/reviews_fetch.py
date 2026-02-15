@@ -13,9 +13,9 @@ from urllib.parse import parse_qs
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from backend.services.ota.rakuten import RakutenClient
-from backend.services.ota.jalan import JalanClient
 from backend.services.ota.booking import BookingClient
+from backend.services.ota.expedia import ExpediaClient
+from backend.services.ota.agoda import AgodaClient
 
 
 class handler(BaseHTTPRequestHandler):
@@ -29,7 +29,7 @@ class handler(BaseHTTPRequestHandler):
 
             # Extract parameters
             hotel_name = data.get('hotel_name', '')
-            sources = data.get('sources', ['rakuten', 'jalan', 'booking'])
+            sources = data.get('sources', ['booking', 'expedia', 'agoda'])
             max_reviews = data.get('max_reviews', 50)
 
             if not hotel_name:
@@ -54,7 +54,9 @@ class handler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(response, ensure_ascii=False).encode('utf-8'))
 
         except Exception as e:
-            self._send_error(500, f"Internal server error: {str(e)}")
+            import traceback
+            error_details = traceback.format_exc()
+            self._send_error(500, f"Internal server error: {str(e)}\\n{error_details}")
 
     def do_OPTIONS(self):
         """Handle CORS preflight request."""
@@ -70,12 +72,12 @@ class handler(BaseHTTPRequestHandler):
 
         # Create clients
         clients = {}
-        if 'rakuten' in sources:
-            clients['rakuten'] = RakutenClient()
-        if 'jalan' in sources:
-            clients['jalan'] = JalanClient()
         if 'booking' in sources:
             clients['booking'] = BookingClient()
+        if 'expedia' in sources:
+            clients['expedia'] = ExpediaClient()
+        if 'agoda' in sources:
+            clients['agoda'] = AgodaClient()
 
         # For each OTA, search for hotel and fetch reviews
         for source, client in clients.items():
