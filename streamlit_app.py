@@ -233,11 +233,14 @@ def main():
                             st.session_state.fetch_response = response
                             st.success(f"✅ {response['total_reviews']}件の口コミを取得しました")
 
-                            # Show breakdown
-                            col1, col2, col3 = st.columns(3)
-                            for i, (ota, count) in enumerate(response['reviews_by_ota'].items()):
-                                with [col1, col2, col3][i % 3]:
-                                    st.metric(ota.upper(), f"{count}件")
+                            # Show breakdown by OTA
+                            if response.get('reviews'):
+                                from collections import Counter
+                                ota_counts = Counter(r.get('source', 'unknown') for r in response['reviews'])
+                                col1, col2, col3 = st.columns(3)
+                                for i, (ota, count) in enumerate(ota_counts.items()):
+                                    with [col1, col2, col3][i % 3]:
+                                        st.metric(ota.upper(), f"{count}件")
 
         # Step 2: Analyze Reviews
         if st.session_state.fetch_response:
