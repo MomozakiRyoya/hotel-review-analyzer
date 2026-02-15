@@ -65,12 +65,13 @@ def fetch_reviews(hotel_name: str, ota_sources: list, start_date, end_date, limi
         return None
 
 
-def analyze_reviews(include_keywords=True, include_sentiment=True, keyword_limit=30):
+def analyze_reviews(reviews, include_keywords=True, include_sentiment=True, keyword_limit=30):
     """Analyze reviews using backend API."""
     try:
         response = httpx.post(
             f"{BACKEND_URL}/api/reviews_analyze",
             json={
+                "reviews": reviews,
                 "include_keywords": include_keywords,
                 "include_sentiment": include_sentiment,
                 "keyword_limit": keyword_limit
@@ -243,8 +244,10 @@ def main():
             if st.button("📈 分析を実行", type="primary", use_container_width=True):
                 with st.spinner("分析中..."):
                     time.sleep(1)  # Brief pause for UX
+                    # Get reviews from session state
+                    reviews = st.session_state.fetch_response.get('reviews', [])
                     response = analyze_reviews(
-                        include_keywords, include_sentiment, keyword_limit
+                        reviews, include_keywords, include_sentiment, keyword_limit
                     )
 
                     if response and response.get("success"):
