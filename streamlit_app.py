@@ -41,10 +41,8 @@ def fetch_reviews(hotel_name: str, ota_sources: list, start_date, end_date, limi
             f"{BACKEND_URL}/api/reviews_fetch",
             json={
                 "hotel_name": hotel_name,
-                "ota_sources": ota_sources,
-                "start_date": start_date.isoformat() if start_date else None,
-                "end_date": end_date.isoformat() if end_date else None,
-                "limit_per_ota": limit
+                "sources": ota_sources,
+                "max_reviews": limit
             },
             timeout=180.0  # 3 minutes
         )
