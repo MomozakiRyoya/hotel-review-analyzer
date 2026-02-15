@@ -28,7 +28,7 @@ except Exception:
 def check_backend_health() -> bool:
     """Check if backend API is running."""
     try:
-        response = httpx.get(f"{BACKEND_URL}/health", timeout=5.0)
+        response = httpx.get(f"{BACKEND_URL}/api/health", timeout=5.0)
         return response.status_code == 200
     except Exception:
         return False
